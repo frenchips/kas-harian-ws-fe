@@ -57,8 +57,8 @@ function Kas() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const categoriesData = await categoriesService.getCategories()
-      const categoriesList = categoriesData.data || []
+      const categoriesData = await categoriesService.getCategories(0, 100, '')
+      const categoriesList = categoriesData.data?.listData || []
       
       if (categoriesList.length === 0) {
         // Gunakan dummy categories jika tidak ada data

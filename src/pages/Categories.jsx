@@ -16,8 +16,11 @@ function Categories() {
     message: '',
     type: 'success'
   })
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(0)
   const [pageSize, setPageSize] = useState(5)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ isVisible: true, message, type })
@@ -27,13 +30,11 @@ function Categories() {
     setToast({ ...toast, isVisible: false })
   }, [toast])
 
-  const totalPages = Math.ceil(categories.length / pageSize)
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const currentCategories = categories.slice(startIndex, endIndex)
+  const startIndex = currentPage * pageSize
+  const endIndex = startIndex + categories.length
 
   const handlePageChange = (page) => {
-    if (page >= 1 && page <= totalPages) {
+    if (page >= 0 && page < totalPages) {
       setCurrentPage(page)
     }
   }
@@ -41,63 +42,57 @@ function Categories() {
   const handlePageSizeChange = (e) => {
     const newSize = parseInt(e.target.value)
     setPageSize(newSize)
-    setCurrentPage(1)
+    setCurrentPage(0)
+  }
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault()
+    setCurrentPage(0)
   }
 
   useEffect(() => {
     loadCategories()
-  }, [])
+  }, [currentPage, pageSize, searchQuery])
 
   const loadCategories = async () => {
     try {
       setLoading(true)
-      const data = await categoriesService.getCategories()
-      const categoriesData = data.data || []
+      const data = await categoriesService.getCategories(currentPage, pageSize, searchQuery)
+      console.log('Full API Response:', data)
       
-      if (categoriesData.length === 0) {
-        // Gunakan data dummy jika tidak ada data
-        setCategories([
-          { id: 1, categoriesName: 'Gaji', type: 'INCOME' },
-          { id: 2, categoriesName: 'Bonus', type: 'INCOME' },
-          { id: 3, categoriesName: 'Makan', type: 'EXPENSE' },
-          { id: 4, categoriesName: 'Transportasi', type: 'EXPENSE' },
-          { id: 5, categoriesName: 'Belanja', type: 'EXPENSE' },
-          { id: 6, categoriesName: 'Hiburan', type: 'EXPENSE' },
-          { id: 7, categoriesName: 'Investasi', type: 'INCOME' },
-          { id: 8, categoriesName: 'Sewaan', type: 'INCOME' },
-          { id: 9, categoriesName: 'Pendidikan', type: 'EXPENSE' },
-          { id: 10, categoriesName: 'Kesehatan', type: 'EXPENSE' },
-          { id: 11, categoriesName: 'Listrik', type: 'EXPENSE' },
-          { id: 12, categoriesName: 'Internet', type: 'EXPENSE' },
-          { id: 13, categoriesName: 'Pinjaman', type: 'INCOME' },
-          { id: 14, categoriesName: 'Hasil Usaha', type: 'INCOME' },
-          { id: 15, categoriesName: 'Asuransi', type: 'EXPENSE' },
-        ])
-      } else {
-        setCategories(categoriesData)
+      // Handle both possible response structures
+      let categoriesData = []
+      let paginationData = {}
+      
+      if (data && data.data && data.data.listData) {
+        categoriesData = data.data.listData
+        paginationData = data.data
+      } else if (data && data.listData) {
+        categoriesData = data.listData
+        paginationData = data
+      } else if (Array.isArray(data)) {
+        categoriesData = data
+      } else if (Array.isArray(data.data)) {
+        categoriesData = data.data
       }
-      setCurrentPage(1)
+      
+      console.log('Categories data:', categoriesData)
+      console.log('Pagination data:', paginationData)
+      console.log('Is array:', Array.isArray(categoriesData))
+      console.log('Length:', categoriesData.length)
+      
+      setCategories(categoriesData)
+      setTotalPages(paginationData.totalPages || 0)
+      setTotalElements(paginationData.totalElements || 0)
     } catch (error) {
       console.error('Error loading categories:', error)
-      // Gunakan data dummy ketika API error
-      setCategories([
-        { id: 1, categoriesName: 'Gaji', type: 'INCOME' },
-        { id: 2, categoriesName: 'Bonus', type: 'INCOME' },
-        { id: 3, categoriesName: 'Makan', type: 'EXPENSE' },
-        { id: 4, categoriesName: 'Transportasi', type: 'EXPENSE' },
-        { id: 5, categoriesName: 'Belanja', type: 'EXPENSE' },
-        { id: 6, categoriesName: 'Hiburan', type: 'EXPENSE' },
-        { id: 7, categoriesName: 'Investasi', type: 'INCOME' },
-        { id: 8, categoriesName: 'Sewaan', type: 'INCOME' },
-        { id: 9, categoriesName: 'Pendidikan', type: 'EXPENSE' },
-        { id: 10, categoriesName: 'Kesehatan', type: 'EXPENSE' },
-        { id: 11, categoriesName: 'Listrik', type: 'EXPENSE' },
-        { id: 12, categoriesName: 'Internet', type: 'EXPENSE' },
-        { id: 13, categoriesName: 'Pinjaman', type: 'INCOME' },
-        { id: 14, categoriesName: 'Hasil Usaha', type: 'INCOME' },
-        { id: 15, categoriesName: 'Asuransi', type: 'EXPENSE' },
-      ])
-      setCurrentPage(1)
+      setCategories([])
+      setTotalPages(0)
+      setTotalElements(0)
     } finally {
       setLoading(false)
     }
@@ -128,6 +123,7 @@ function Categories() {
         response = await categoriesService.createCategory(formData)
       }
       setShowModal(false)
+      setCurrentPage(0)
       loadCategories()
       showToast(response.message || 'Berhasil menyimpan kategori')
     } catch (error) {
@@ -140,6 +136,7 @@ function Categories() {
     if (confirm(`Yakin ingin menghapus kategori ${category.categoriesName}?`)) {
       try {
         const response = await categoriesService.deleteCategory(category.id)
+        setCurrentPage(0)
         loadCategories()
         showToast(response.message || 'Berhasil menghapus kategori')
       } catch (error) {
@@ -151,18 +148,28 @@ function Categories() {
 
   return (
     <div>
-      <div className="section-header" style={{ marginBottom: '1rem' }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Categories</h1>
-        <button className="btn-primary" style={{ padding: '0.5rem 0.875rem', fontSize: '0.8125rem', width: 'auto', flex: '0 0 auto' }} onClick={handleAdd}>
+      <h1 className="page-title" style={{ marginBottom: '1rem' }}>Categories</h1>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <form onSubmit={handleSearchSubmit} style={{ flex: 1, maxWidth: '400px' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <input
+              type="text"
+              placeholder="Cari kategori..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              style={{ width: '100%' }}
+            />
+          </div>
+        </form>
+        <button className="btn-primary" style={{ padding: '0.5rem 0.875rem', fontSize: '0.8125rem', width: 'auto', flex: '0 0 auto', whiteSpace: 'nowrap' }} onClick={handleAdd}>
           <span>+</span>
           <span>Tambah</span>
         </button>
       </div>
 
       <div className="categories-section">
-        <div className="section-header">
-          <h2>List Categories</h2>
-        </div>
+      
 
         {loading ? (
           <div className="loading">Loading...</div>
@@ -182,7 +189,7 @@ function Categories() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentCategories.map((category) => (
+                  {categories.map((category) => (
                     <tr key={category.id}>
                       <td style={{ fontWeight: 500 }}>{category.categoriesName}</td>
                       <td>
@@ -211,7 +218,7 @@ function Categories() {
             {totalPages > 1 && (
               <div className="pagination-container">
                 <div className="pagination-info">
-                  Menampilkan {startIndex + 1} - {Math.min(endIndex, categories.length)} dari {categories.length} data
+                  Menampilkan {startIndex + 1} - {Math.min(endIndex, totalElements)} dari {totalElements} data
                 </div>
                 <div className="pagination-controls">
                   <div className="page-size-selector">
@@ -227,23 +234,23 @@ function Categories() {
                     <button
                       className="pagination-btn"
                       onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
+                      disabled={currentPage === 0}
                     >
                       &lt;
                     </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    {Array.from({ length: totalPages }, (_, i) => i).map((page) => (
                       <button
                         key={page}
                         className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
                         onClick={() => handlePageChange(page)}
                       >
-                        {page}
+                        {page + 1}
                       </button>
                     ))}
                     <button
                       className="pagination-btn"
                       onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage === totalPages - 1}
                     >
                       &gt;
                     </button>

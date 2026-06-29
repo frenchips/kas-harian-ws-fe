@@ -33,10 +33,24 @@ export const categoriesService = {
     }
   },
 
-  async getCategories() {
+  async getCategories(page = 0, size = 5, search = '') {
     try {
-      const response = await fetch(`${API_BASE_URL}/categories`)
-      return await response.json()
+      const requestBody = {
+        search,
+        offset: page,
+        size
+      }
+      console.log('Request body for search:', requestBody)
+      const response = await fetch(`${API_BASE_URL}/categories/searchCategories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+      const data = await response.json()
+      console.log('API Response from search:', data)
+      return data
     } catch (error) {
       console.error('Error fetching categories:', error)
       throw error
