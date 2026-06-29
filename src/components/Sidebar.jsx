@@ -1,4 +1,12 @@
+import { Link, useLocation } from 'react-router-dom'
+
 function Sidebar({ isOpen, onClose }) {
+  const location = useLocation()
+
+  const isActive = (path) => {
+    return location.pathname === path
+  }
+
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
@@ -10,18 +18,36 @@ function Sidebar({ isOpen, onClose }) {
       </div>
       
       <nav className="sidebar-nav">
-        <div className="nav-item active" onClick={onClose}>
+        <Link 
+          to="/" 
+          className={`nav-item ${isActive('/') ? 'active' : ''}`} 
+          onClick={onClose}
+        >
           <svg className="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
           <span>Dashboard</span>
-        </div>
-        <div className="nav-item" onClick={onClose}>
+        </Link>
+        <Link 
+          to="/categories" 
+          className={`nav-item ${isActive('/categories') ? 'active' : ''}`} 
+          onClick={onClose}
+        >
           <svg className="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002 2" />
           </svg>
-          <span>Shared Files</span>
-        </div>
+          <span>Categories</span>
+        </Link>
+        <Link 
+          to="/kas" 
+          className={`nav-item ${isActive('/kas') ? 'active' : ''}`} 
+          onClick={onClose}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span>Kas</span>
+        </Link>
         <div className="nav-item" onClick={onClose}>
           <svg className="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
