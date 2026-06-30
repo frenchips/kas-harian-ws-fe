@@ -10,7 +10,9 @@ export const categoriesService = {
         },
         body: JSON.stringify(categoryData),
       })
-      return await response.json()
+      // Handle empty response
+      const text = await response.text()
+      return text ? JSON.parse(text) : { message: 'Berhasil membuat kategori' }
     } catch (error) {
       console.error('Error creating category:', error)
       throw error
@@ -26,7 +28,9 @@ export const categoriesService = {
         },
         body: JSON.stringify(categoryData),
       })
-      return await response.json()
+      // Handle empty response
+      const text = await response.text()
+      return text ? JSON.parse(text) : { message: 'Berhasil mengupdate kategori' }
     } catch (error) {
       console.error('Error updating category:', error)
       throw error
@@ -57,6 +61,8 @@ export const categoriesService = {
     }
   },
 
+  
+
   async deleteCategory(id) {
     try {
       const response = await fetch(`${API_BASE_URL}/categories/${id}`, {
@@ -65,6 +71,18 @@ export const categoriesService = {
       return await response.json()
     } catch (error) {
       console.error('Error deleting category:', error)
+      throw error
+    }
+  },
+
+  async getAllCategories() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/categories`)
+      const data = await response.json()
+      console.log('getAllCategories response:', data)
+      return data
+    } catch (error) {
+      console.error('Error fetching all categories:', error)
       throw error
     }
   },

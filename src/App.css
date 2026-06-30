@@ -456,6 +456,10 @@ a.nav-item {
   min-width: 90px;
 }
 
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
 .section-header .btn-primary {
   flex: 0 0 auto;
   min-width: auto;

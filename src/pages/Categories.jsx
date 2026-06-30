@@ -6,6 +6,8 @@ function Categories() {
   const [categories, setCategories] = useState([])
   const [editingCategory, setEditingCategory] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletingCategory, setDeletingCategory] = useState(null)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     categoriesName: '',
@@ -132,18 +134,29 @@ function Categories() {
     }
   }
 
-  const handleDelete = async (category) => {
-    if (confirm(`Yakin ingin menghapus kategori ${category.categoriesName}?`)) {
-      try {
-        const response = await categoriesService.deleteCategory(category.id)
-        setCurrentPage(0)
-        loadCategories()
-        showToast(response.message || 'Berhasil menghapus kategori')
-      } catch (error) {
-        console.error('Error deleting category:', error)
-        showToast(error.message || 'Gagal menghapus kategori', 'error')
-      }
+  const handleDelete = (category) => {
+    setDeletingCategory(category)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingCategory) return
+    try {
+      const response = await categoriesService.deleteCategory(deletingCategory.id)
+      setShowDeleteModal(false)
+      setDeletingCategory(null)
+      setCurrentPage(0)
+      loadCategories()
+      showToast(response.message || 'Berhasil menghapus kategori')
+    } catch (error) {
+      console.error('Error deleting category:', error)
+      showToast(error.message || 'Gagal menghapus kategori', 'error')
     }
+  }
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false)
+    setDeletingCategory(null)
   }
 
   return (
@@ -305,6 +318,30 @@ function Categories() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && deletingCategory && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Hapus Kategori</h2>
+              <button className="modal-close" onClick={cancelDelete}>
+                ×
+              </button>
+            </div>
+            <div style={{ padding: '0 1rem 1.5rem 1rem' }}>
+              <p>Yakin ingin menghapus kategori <strong>{deletingCategory.categoriesName}</strong>?</p>
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={cancelDelete}>
+                Batal
+              </button>
+              <button type="button" className="btn-primary" onClick={confirmDelete} style={{ background: '#dc2626' }}>
+                Hapus
+              </button>
+            </div>
           </div>
         </div>
       )}

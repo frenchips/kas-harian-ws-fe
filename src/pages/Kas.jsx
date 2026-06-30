@@ -4,10 +4,12 @@ import { transactionService } from '../services/transactionService'
 import Toast from '../components/Toast'
 
 function Kas() {
-  const [kasList, setKasList] = useState([])
   const [categories, setCategories] = useState([])
+  const [kasList, setKasList] = useState([])
   const [editingKas, setEditingKas] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletingKas, setDeletingKas] = useState(null)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     categoriesId: '',
@@ -30,8 +32,8 @@ function Kas() {
   }, [])
 
   const closeToast = useCallback(() => {
-    setToast({ ...toast, isVisible: false })
-  }, [toast])
+    setToast((prev) => ({ ...prev, isVisible: false }))
+  }, [])
 
   const totalPages = Math.ceil(kasList.length / pageSize)
   const startIndex = (currentPage - 1) * pageSize
@@ -50,67 +52,40 @@ function Kas() {
     setCurrentPage(1)
   }
 
+  // Mengambil data kategori dan transaksi saat komponen pertama kali di-render
   useEffect(() => {
-    loadData()
+    loadDataCategories()
   }, [])
 
-  const loadData = async () => {
+  const loadDataCategories = async () => {
     try {
       setLoading(true)
-      const categoriesData = await categoriesService.getCategories(0, 100, '')
-      const categoriesList = categoriesData.data?.listData || []
+      console.log('🔄 Mulai loadData (Kategori Saja)...')
       
-      if (categoriesList.length === 0) {
-        // Gunakan dummy categories jika tidak ada data
-        setCategories([
-          { id: 1, categoriesName: 'Gaji', type: 'INCOME' },
-          { id: 2, categoriesName: 'Bonus', type: 'INCOME' },
-          { id: 3, categoriesName: 'Hasil Usaha', type: 'INCOME' },
-          { id: 4, categoriesName: 'Sewaan', type: 'INCOME' },
-          { id: 5, categoriesName: 'Makan', type: 'EXPENSE' },
-          { id: 6, categoriesName: 'Transportasi', type: 'EXPENSE' },
-          { id: 7, categoriesName: 'Belanja', type: 'EXPENSE' },
-          { id: 8, categoriesName: 'Hiburan', type: 'EXPENSE' },
-          { id: 9, categoriesName: 'Pendidikan', type: 'EXPENSE' },
-          { id: 10, categoriesName: 'Kesehatan', type: 'EXPENSE' },
-        ])
+      // Hanya panggil API milik categoriesService
+      const categoriesData = await categoriesService.getAllCategories()
+
+      console.log('✅ Response Asli categoriesData:', categoriesData)
+      
+      let categoriesList = []
+      if (categoriesData && Array.isArray(categoriesData.data)) {
+        categoriesList = categoriesData.data
+      } else if (Array.isArray(categoriesData)) {
+        categoriesList = categoriesData
       } else {
-        setCategories(categoriesList)
+        console.warn('⚠️ Struktur data categories tidak dikenali atau kosong!')
       }
       
-      const transactionData = await transactionService.getTransactions()
-      const transactionsList = transactionData.data || []
+      setCategories(categoriesList)
       
-      if (transactionsList.length === 0) {
-        // Gunakan dummy transactions jika tidak ada data
-        setKasList([
-          { id: 1, transactionDate: '2024-06-25', categoriesId: 1, categoriesName: 'Gaji', description: 'Gaji bulanan', income: 5000000, expend: 0 },
-          { id: 2, transactionDate: '2024-06-26', categoriesId: 5, categoriesName: 'Makan', description: 'Makan siang', income: 0, expend: 25000 },
-          { id: 3, transactionDate: '2024-06-27', categoriesId: 6, categoriesName: 'Transportasi', description: 'Bensin', income: 0, expend: 50000 },
-        ])
-      } else {
-        setKasList(transactionsList)
-      }
+      // Karena getTransaction belum ada, set list kas ke array kosong agar tabel tidak error
+      setKasList([]) 
+      
     } catch (error) {
-      console.error('Error loading data:', error)
-      // Jika API error, gunakan dummy data
-      setCategories([
-        { id: 1, categoriesName: 'Gaji', type: 'INCOME' },
-        { id: 2, categoriesName: 'Bonus', type: 'INCOME' },
-        { id: 3, categoriesName: 'Hasil Usaha', type: 'INCOME' },
-        { id: 4, categoriesName: 'Sewaan', type: 'INCOME' },
-        { id: 5, categoriesName: 'Makan', type: 'EXPENSE' },
-        { id: 6, categoriesName: 'Transportasi', type: 'EXPENSE' },
-        { id: 7, categoriesName: 'Belanja', type: 'EXPENSE' },
-        { id: 8, categoriesName: 'Hiburan', type: 'EXPENSE' },
-        { id: 9, categoriesName: 'Pendidikan', type: 'EXPENSE' },
-        { id: 10, categoriesName: 'Kesehatan', type: 'EXPENSE' },
-      ])
-      setKasList([
-        { id: 1, transactionDate: '2024-06-25', categoriesId: 1, categoriesName: 'Gaji', description: 'Gaji bulanan', income: 5000000, expend: 0 },
-        { id: 2, transactionDate: '2024-06-26', categoriesId: 5, categoriesName: 'Makan', description: 'Makan siang', income: 0, expend: 25000 },
-        { id: 3, transactionDate: '2024-06-27', categoriesId: 6, categoriesName: 'Transportasi', description: 'Bensin', income: 0, expend: 50000 },
-      ])
+      console.error('❌ Error loading data kategori:', error)
+      setCategories([])
+      setKasList([])
+      showToast('Gagal memuat data kategori dari server', 'error')
     } finally {
       setLoading(false)
     }
@@ -132,10 +107,11 @@ function Kas() {
   const handleEdit = (kas) => {
     setEditingKas(kas)
     const amount = kas.income > 0 ? kas.income : kas.expend
-    setAmountInput(amount > 0 ? amount.toString() : '')
+    const amountStr = amount > 0 ? amount.toString() : ''
+    setAmountInput(amountStr)
     setFormData({
-      categoriesId: kas.categoriesId,
-      description: kas.description,
+      categoriesId: kas.categoriesId?.toString() || '',
+      description: kas.description || '',
       income: kas.income > 0 ? kas.income.toString() : '',
       expend: kas.expend > 0 ? kas.expend.toString() : '',
       transactionDate: kas.transactionDate?.split('T')[0] || new Date().toISOString().split('T')[0]
@@ -146,47 +122,61 @@ function Kas() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      // Konversi ke number sebelum kirim ke API
       const submitData = {
         ...formData,
+        // Backend biasanya membutuhkan tipe Integer/Long untuk ID Kategori
+        categoriesId: parseInt(formData.categoriesId) || formData.categoriesId,
         income: formData.income === '' ? 0 : parseInt(formData.income) || 0,
         expend: formData.expend === '' ? 0 : parseInt(formData.expend) || 0
       }
+      
       let response
       if (editingKas) {
         response = await transactionService.updateTransaction(editingKas.id, submitData)
       } else {
         response = await transactionService.createTransaction(submitData)
       }
+      
       setShowModal(false)
-      loadData()
+      loadDataCategories()
       setCurrentPage(1)
-      showToast(response.message || (editingKas ? 'Berhasil mengupdate data kas' : 'Berhasil menambah data kas'))
+      showToast(response?.message || (editingKas ? 'Berhasil mengupdate data kas' : 'Berhasil menambah data kas'))
     } catch (error) {
       console.error('Error submitting form:', error)
       showToast(error.message || 'Gagal menyimpan data kas', 'error')
     }
   }
 
-  const handleDelete = async (kas) => {
-    if (confirm(`Yakin ingin menghapus data kas ${kas.description}?`)) {
-      try {
-        const response = await transactionService.deleteTransaction(kas.id)
-        loadData()
-        showToast(response.message || 'Berhasil menghapus data kas')
-      } catch (error) {
-        console.error('Error deleting kas:', error)
-        showToast(error.message || 'Gagal menghapus data kas', 'error')
-      }
+  const handleDelete = (kas) => {
+    setDeletingKas(kas)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingKas) return
+    try {
+      const response = await transactionService.deleteTransaction(deletingKas.id)
+      setShowDeleteModal(false)
+      setDeletingKas(null)
+      loadDataCategories()
+      showToast(response?.message || 'Berhasil menghapus data kas')
+    } catch (error) {
+      console.error('Error deleting kas:', error)
+      showToast(error.message || 'Gagal menghapus data kas', 'error')
     }
   }
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount)
+  const cancelDelete = () => {
+    setShowDeleteModal(false)
+    setDeletingKas(null)
   }
 
-  const totalIncome = kasList.filter(k => k.income > 0).reduce((sum, k) => sum + (parseInt(k.income) || 0), 0)
-  const totalExpense = kasList.filter(k => k.expend > 0).reduce((sum, k) => sum + (parseInt(k.expend) || 0), 0)
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount || 0)
+  }
+
+  const totalIncome = Array.isArray(kasList) ? kasList.filter(k => k.income > 0).reduce((sum, k) => sum + (parseInt(k.income) || 0), 0) : 0
+  const totalExpense = Array.isArray(kasList) ? kasList.filter(k => k.expend > 0).reduce((sum, k) => sum + (parseInt(k.expend) || 0), 0) : 0
   const netBalance = totalIncome - totalExpense
 
   return (
@@ -199,29 +189,24 @@ function Kas() {
         </button>
       </div>
 
+      {/* Grid Informasi Saldo */}
       <div className="cards-grid">
         <div className="category-card" style={{ borderTop: '4px solid #10b981' }}>
-          <div className="card-icon" style={{ background: '#d1fae5', color: '#059669' }}>
-            +
-          </div>
+          <div className="card-icon" style={{ background: '#d1fae5', color: '#059669' }}>+</div>
           <div className="card-content">
             <h3>Pemasukan</h3>
             <p>{formatCurrency(totalIncome)}</p>
           </div>
         </div>
         <div className="category-card" style={{ borderTop: '4px solid #ef4444' }}>
-          <div className="card-icon" style={{ background: '#fee2e2', color: '#dc2626' }}>
-            -
-          </div>
+          <div className="card-icon" style={{ background: '#fee2e2', color: '#dc2626' }}>-</div>
           <div className="card-content">
             <h3>Pengeluaran</h3>
             <p>{formatCurrency(totalExpense)}</p>
           </div>
         </div>
         <div className="category-card" style={{ borderTop: '4px solid #3b82f6' }}>
-          <div className="card-icon" style={{ background: '#dbeafe', color: '#2563eb' }}>
-            =
-          </div>
+          <div className="card-icon" style={{ background: '#dbeafe', color: '#2563eb' }}>=</div>
           <div className="card-content">
             <h3>Saldo</h3>
             <p>{formatCurrency(netBalance)}</p>
@@ -229,6 +214,7 @@ function Kas() {
         </div>
       </div>
 
+      {/* Tabel Data Kas */}
       <div className="categories-section">
         <div className="section-header">
           <h2>Daftar Kas</h2>
@@ -236,7 +222,7 @@ function Kas() {
 
         {loading ? (
           <div className="loading">Loading...</div>
-        ) : kasList.length === 0 ? (
+        ) : !Array.isArray(kasList) || kasList.length === 0 ? (
           <div className="empty-state">
             <p>Tidak ada data kas</p>
           </div>
@@ -260,7 +246,7 @@ function Kas() {
                     return (
                       <tr key={kas.id}>
                         <td>{kas.transactionDate?.split('T')[0] || '-'}</td>
-                        <td>{kas.categoriesName || categories.find(c => c.id === kas.categoriesId)?.categoriesName || '-'}</td>
+                        <td>{kas.categoriesName || categories.find(c => String(c.id) === String(kas.categoriesId))?.categoriesName || '-'}</td>
                         <td style={{ fontWeight: 500 }}>{kas.description}</td>
                         <td>
                           <span className={`type-badge type-${isIncome ? 'income' : 'expense'}`}>
@@ -289,6 +275,7 @@ function Kas() {
               </table>
             </div>
             
+            {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="pagination-container">
                 <div className="pagination-info">
@@ -305,29 +292,11 @@ function Kas() {
                     </select>
                   </div>
                   <div className="pagination-buttons">
-                    <button
-                      className="pagination-btn"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      &lt;
-                    </button>
+                    <button className="pagination-btn" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>&lt;</button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <button
-                        key={page}
-                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                        onClick={() => handlePageChange(page)}
-                      >
-                        {page}
-                      </button>
+                      <button key={page} className={`pagination-btn ${currentPage === page ? 'active' : ''}`} onClick={() => handlePageChange(page)}>{page}</button>
                     ))}
-                    <button
-                      className="pagination-btn"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      &gt;
-                    </button>
+                    <button className="pagination-btn" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>&gt;</button>
                   </div>
                 </div>
               </div>
@@ -336,14 +305,13 @@ function Kas() {
         )}
       </div>
 
+      {/* Modal Tambah / Edit */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingKas ? 'Edit Kas' : 'Tambah Kas'}</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
-                ×
-              </button>
+              <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -357,6 +325,8 @@ function Kas() {
                   required
                 />
               </div>
+
+              {/* COMBO BOX KATEGORI YANG TERHUBUNG KE API */}
               <div className="form-group">
                 <label htmlFor="categoriesId">Kategori</label>
                 <select
@@ -364,10 +334,12 @@ function Kas() {
                   name="categoriesId"
                   value={formData.categoriesId}
                   onChange={(e) => {
-                    const selectedCategory = categories.find(c => c.id === parseInt(e.target.value))
-                    // Reset income/expend based on category type
+                    const targetValue = e.target.value
+                    // Membandingkan dengan konversi tipe String untuk mencegah error Type Mismatch (int vs string)
+                    const selectedCategory = categories.find(c => String(c.id) === String(targetValue))
+                    
                     setFormData(prev => {
-                      let newFormData = { ...prev, categoriesId: e.target.value }
+                      let newFormData = { ...prev, categoriesId: targetValue }
                       if (selectedCategory?.type === 'INCOME') {
                         newFormData.expend = ''
                         newFormData.income = amountInput
@@ -381,13 +353,18 @@ function Kas() {
                   required
                 >
                   <option value="">Pilih Kategori</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.categoriesName} ({category.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'})
-                    </option>
-                  ))}
+                  {!Array.isArray(categories) || categories.length === 0 ? (
+                    <option value="" disabled>Tidak ada kategori tersedia</option>
+                  ) : (
+                    categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.categoriesName} ({category.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'})
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
+
               <div className="form-group">
                 <label htmlFor="description">Keterangan</label>
                 <input
@@ -400,6 +377,7 @@ function Kas() {
                   required
                 />
               </div>
+
               <div className="form-group">
                 <label htmlFor="amount">Jumlah</label>
                 <input
@@ -410,7 +388,7 @@ function Kas() {
                   onChange={(e) => {
                     const newValue = e.target.value
                     setAmountInput(newValue)
-                    const selectedCategory = categories.find(c => c.id === parseInt(formData.categoriesId))
+                    const selectedCategory = categories.find(c => String(c.id) === String(formData.categoriesId))
                     if (selectedCategory?.type === 'INCOME') {
                       setFormData(prev => ({ ...prev, income: newValue, expend: '' }))
                     } else if (selectedCategory?.type === 'EXPENSE') {
@@ -422,25 +400,36 @@ function Kas() {
                   required={!!formData.categoriesId}
                 />
               </div>
+
               <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                  Batal
-                </button>
-                <button type="submit" className="btn-primary">
-                  {editingKas ? 'Update' : 'Simpan'}
-                </button>
+                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Batal</button>
+                <button type="submit" className="btn-primary">{editingKas ? 'Update' : 'Simpan'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      <Toast 
-        message={toast.message} 
-        isVisible={toast.isVisible} 
-        onClose={closeToast}
-        type={toast.type}
-      />
+      {/* Modal Delete Confirmation */}
+      {showDeleteModal && deletingKas && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Hapus Data Kas</h2>
+              <button className="modal-close" onClick={cancelDelete}>×</button>
+            </div>
+            <div style={{ padding: '0 1rem 1.5rem 1rem' }}>
+              <p>Yakin ingin menghapus data kas <strong>{deletingKas.description}</strong>?</p>
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={cancelDelete}>Batal</button>
+              <button type="button" className="btn-primary" onClick={confirmDelete} style={{ background: '#dc2626' }}>Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Toast message={toast.message} isVisible={toast.isVisible} onClose={closeToast} type={toast.type} />
     </div>
   )
 }

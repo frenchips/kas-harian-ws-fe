@@ -33,15 +33,6 @@ export const transactionService = {
     }
   },
 
-  async getTransactions() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/transaction`)
-      return await response.json()
-    } catch (error) {
-      console.error('Error fetching transactions:', error)
-      throw error
-    }
-  },
 
   async deleteTransaction(id) {
     try {
@@ -51,6 +42,18 @@ export const transactionService = {
       return await response.json()
     } catch (error) {
       console.error('Error deleting transaction:', error)
+      throw error
+    }
+  },
+
+  async getTransactions() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/transaction`)
+      const data = await response.json()
+      console.log('getTransactions response:', data)
+      return data
+    } catch (error) {
+      console.error('Error fetching transactions:', error)
       throw error
     }
   },
