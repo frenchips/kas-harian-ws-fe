@@ -57,4 +57,30 @@ export const transactionService = {
       throw error
     }
   },
+
+  async searchTransaction(search = '', offset = 0, size = 10) {
+    try {
+      const requestBody = {
+        search,
+        offset,
+        size
+      }
+      console.log('searchTransaction request:', requestBody)
+      
+      const response = await fetch(`${API_BASE_URL}/transaction/searchTransaction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+      
+      const data = await response.json()
+      console.log('searchTransaction response:', data)
+      return data
+    } catch (error) {
+      console.error('Error searching transactions:', error)
+      throw error
+    }
+  },
 }

@@ -26,6 +26,9 @@ function Kas() {
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ isVisible: true, message, type })
@@ -34,11 +37,6 @@ function Kas() {
   const closeToast = useCallback(() => {
     setToast((prev) => ({ ...prev, isVisible: false }))
   }, [])
-
-  const totalPages = Math.ceil(kasList.length / pageSize)
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const currentKasList = kasList.slice(startIndex, endIndex)
 
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
@@ -52,10 +50,20 @@ function Kas() {
     setCurrentPage(1)
   }
 
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault()
+    setCurrentPage(1)
+  }
+
   // Mengambil data kategori dan transaksi saat komponen pertama kali di-render
   useEffect(() => {
     loadDataCategories()
-  }, [])
+    loadDataTransaction()
+  }, [currentPage, pageSize, searchQuery])
 
   const loadDataCategories = async () => {
     try {
@@ -91,6 +99,38 @@ function Kas() {
     }
   }
 
+  const loadDataTransaction = async () => {
+    try {
+      setLoading(true)
+      console.log('🔄 Mulai loadDataTransaction...')
+      
+      // Konversi currentPage (1-based) ke offset (0-based)
+      const offset = currentPage - 1
+      
+      const transactionsData = await transactionService.searchTransaction(searchQuery, offset, pageSize)
+      
+      console.log('✅ Response searchTransaction:', transactionsData)
+      
+      let transactionList = []
+      if (transactionsData && transactionsData.data && transactionsData.data.listData) {
+        transactionList = transactionsData.data.listData
+        setTotalPages(transactionsData.data.totalPages || 0)
+        setTotalElements(transactionsData.data.totalElements || 0)
+      }
+      
+      setKasList(transactionList)
+      
+    } catch (error) {
+      console.error('❌ Error loading transactions:', error)
+      setKasList([])
+      setTotalPages(0)
+      setTotalElements(0)
+      showToast('Gagal memuat data transaksi dari server', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleAdd = () => {
     setEditingKas(null)
     setAmountInput('')
@@ -106,14 +146,14 @@ function Kas() {
 
   const handleEdit = (kas) => {
     setEditingKas(kas)
-    const amount = kas.income > 0 ? kas.income : kas.expend
+    const amount = kas.income > 0 ? kas.income : (kas.expand || kas.expend)
     const amountStr = amount > 0 ? amount.toString() : ''
     setAmountInput(amountStr)
     setFormData({
       categoriesId: kas.categoriesId?.toString() || '',
       description: kas.description || '',
       income: kas.income > 0 ? kas.income.toString() : '',
-      expend: kas.expend > 0 ? kas.expend.toString() : '',
+      expend: (kas.expand || kas.expend) > 0 ? (kas.expand || kas.expend).toString() : '',
       transactionDate: kas.transactionDate?.split('T')[0] || new Date().toISOString().split('T')[0]
     })
     setShowModal(true)
@@ -138,7 +178,7 @@ function Kas() {
       }
       
       setShowModal(false)
-      loadDataCategories()
+      loadDataTransaction()
       setCurrentPage(1)
       showToast(response?.message || (editingKas ? 'Berhasil mengupdate data kas' : 'Berhasil menambah data kas'))
     } catch (error) {
@@ -158,7 +198,7 @@ function Kas() {
       const response = await transactionService.deleteTransaction(deletingKas.id)
       setShowDeleteModal(false)
       setDeletingKas(null)
-      loadDataCategories()
+      loadDataTransaction()
       showToast(response?.message || 'Berhasil menghapus data kas')
     } catch (error) {
       console.error('Error deleting kas:', error)
@@ -176,13 +216,30 @@ function Kas() {
   }
 
   const totalIncome = Array.isArray(kasList) ? kasList.filter(k => k.income > 0).reduce((sum, k) => sum + (parseInt(k.income) || 0), 0) : 0
-  const totalExpense = Array.isArray(kasList) ? kasList.filter(k => k.expend > 0).reduce((sum, k) => sum + (parseInt(k.expend) || 0), 0) : 0
+  const totalExpense = Array.isArray(kasList) ? kasList.filter(k => (k.expand > 0 || k.expend > 0)).reduce((sum, k) => sum + (parseInt(k.expand) || parseInt(k.expend) || 0), 0) : 0
   const netBalance = totalIncome - totalExpense
+  const startIndex = (currentPage - 1) * pageSize + 1
+  const endIndex = Math.min(currentPage * pageSize, totalElements)
 
   return (
     <div>
       <div className="section-header" style={{ marginBottom: '1rem' }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Kas</h1>
+        <h1 className="page-title" style={{ marginBottom: 0 }}>Kas Harian</h1>
+      </div>
+
+      {/* Form Search dan Tambah */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <form onSubmit={handleSearchSubmit} style={{ flex: 1, maxWidth: '400px' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <input
+              type="text"
+              placeholder="Cari transaksi..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              style={{ width: '100%' }}
+            />
+          </div>
+        </form>
         <button className="btn-primary" style={{ padding: '0.5rem 0.875rem', fontSize: '0.8125rem', width: 'auto', flex: '0 0 auto' }} onClick={handleAdd}>
           <span>+</span>
           <span>Tambah</span>
@@ -241,8 +298,9 @@ function Kas() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentKasList.map((kas) => {
+                  {kasList.map((kas) => {
                     const isIncome = kas.income > 0
+                    const expenseAmount = kas.expand || kas.expend || 0
                     return (
                       <tr key={kas.id}>
                         <td>{kas.transactionDate?.split('T')[0] || '-'}</td>
@@ -254,7 +312,7 @@ function Kas() {
                           </span>
                         </td>
                         <td style={{ textAlign: 'right', fontWeight: 600, color: isIncome ? '#059669' : '#dc2626' }}>
-                          {formatCurrency(isIncome ? kas.income : kas.expend)}
+                          {formatCurrency(isIncome ? kas.income : expenseAmount)}
                         </td>
                         <td>
                           <button className="btn-icon edit" onClick={() => handleEdit(kas)} title="Edit">
@@ -279,7 +337,7 @@ function Kas() {
             {totalPages > 1 && (
               <div className="pagination-container">
                 <div className="pagination-info">
-                  Menampilkan {startIndex + 1} - {Math.min(endIndex, kasList.length)} dari {kasList.length} data
+                  Menampilkan {startIndex} - {endIndex} dari {totalElements} data
                 </div>
                 <div className="pagination-controls">
                   <div className="page-size-selector">
